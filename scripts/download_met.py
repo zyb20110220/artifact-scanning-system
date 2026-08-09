@@ -49,20 +49,47 @@ def load_config():
         return yaml.safe_load(f)
 
 
-def get_object_ids(api_base, department_ids):
+def get_object_ids_by_search(api_base, keywords):
     """
-    按部门获取全部 objectID 列表。
-    /objects?departmentIds=X 返回该部门所有对象（含无图的），量比 search 关键词大得多。
+    方案 B：按关键词搜索获取 objectID 列表。
+    search?q=<kw>&hasImages=true 返回的已是匹配关键词且有图的文物，
+    请求量远小于部门全量枚举，不易触发限流。
+    """
+    ids = []
+    for kw in keywords:
+        url = f"{api_base}/search?q={kw}&hasImages=true"
+        resp = requests.get(url, timeout=30)
+        if resp.status_code == 403:
+            logger.error("MET 返回 403（限流/封禁）：请稍后再试，或申请 MET API Key")
+            raise SystemExit(1)
+        resp.raise_for_status()
+        data = resp.json()
+        kw_ids = data.get("objectIDs", []) or []
+        logger.info("关键词 %s: %d 个对象", kw, len(kw_ids))
+        ids.extend(kw_ids)
+        time.sleep(0.5)   # 温和请求
+    # 去重并保持顺序
+    return list(dict.fromkeys(ids))
+
+
+def get_object_ids_by_department(api_base, department_ids):
+    """
+    方案 A：按部门获取全部 objectID 列表（覆盖广，但请求量大）。
+    /objects?departmentIds=X 返回该部门所有对象（含无图的）。
     """
     ids = []
     for dept in department_ids:
         url = f"{api_base}/objects?departmentIds={dept}"
         resp = requests.get(url, timeout=30)
+        if resp.status_code == 403:
+            logger.error("MET 返回 403（限流/封禁）：请等待一段时间后再试，或申请 MET API Key")
+            raise SystemExit(1)
         resp.raise_for_status()
         data = resp.json()
         dept_ids = data.get("objectIDs", []) or []
         logger.info("部门 %s: %d 个对象", dept, len(dept_ids))
         ids.extend(dept_ids)
+        time.sleep(1.0)   # 温和请求，避免封禁
     # 去重并保持顺序
     return list(dict.fromkeys(ids))
 
@@ -71,12 +98,15 @@ def is_target(detail, medium_keywords):
     """
     判断是否目标文物：
       - 必须有主图（primaryImage 或 primaryImageSmall 非空）
-      - 材质（medium）包含目标关键词之一
+    注：方案 B 中 search 已按关键词过滤，这里只需保证有图；
+        方案 A（部门枚举）时 medium_keywords 用于材质过滤。
     """
     if not detail.get("primaryImage") and not detail.get("primaryImageSmall"):
         return False
     medium = (detail.get("medium") or "").lower()
-    return any(kw.lower() in medium for kw in medium_keywords)
+    if medium_keywords:
+        return any(kw.lower() in medium for kw in medium_keywords)
+    return True
 
 
 def download_image(detail, save_dir, max_side):
@@ -108,26 +138,38 @@ def download_image(detail, save_dir, max_side):
 def process_one(oid, api_base, medium_keywords, save_dir, max_side, stop_event):
     """
     并发 worker：处理单个 objectID → 拉详情 → 过滤 → 下载。
-    返回记录 dict；不满足条件或出错返回 None。
+    返回 (status, record)：status ∈ {"ok", "skip", "rate_limit", "error"}
     """
     if stop_event.is_set():          # 已达成目标数量，跳过剩余任务
-        return None
-    try:
-        resp = requests.get(f"{api_base}/objects/{oid}", timeout=30)
-        if resp.status_code == 429:  # 触发限流
-            time.sleep(5)
-            return None
-        resp.raise_for_status()
-        detail = resp.json()
-    except Exception:
-        return None
+        return ("skip", None)
+
+    resp = None
+    detail = None
+    for attempt in range(3):         # 429 限流时最多重试 3 次
+        try:
+            time.sleep(0.3)          # 请求间隔，控制请求速率（避免封禁）
+            resp = requests.get(f"{api_base}/objects/{oid}", timeout=30)
+            if resp.status_code == 403:
+                return ("rate_limit", None)   # IP 被封，立即标记限流
+            if resp.status_code == 429:
+                time.sleep(5)
+                continue
+            resp.raise_for_status()
+            detail = resp.json()
+            break
+        except Exception:
+            time.sleep(1)
+
+    if detail is None:
+        status = "rate_limit" if resp is not None and resp.status_code == 429 else "error"
+        return (status, None)
 
     if not is_target(detail, medium_keywords):
-        return None
+        return ("skip", None)
     img_path = download_image(detail, save_dir, max_side)
     if img_path is None:
-        return None
-    return {
+        return ("error", None)
+    return ("ok", {
         "object_id": oid,
         "image_path": img_path,
         "title": detail.get("title", ""),
@@ -136,7 +178,7 @@ def process_one(oid, api_base, medium_keywords, save_dir, max_side, stop_event):
         "medium": detail.get("medium", ""),
         "object_date": detail.get("objectDate", ""),
         "object_url": detail.get("objectURL", ""),
-    }
+    })
 
 
 def load_progress():
@@ -160,8 +202,8 @@ def main():
         help="覆盖 config 的采集上限（建议先小规模测试，如 100）",
     )
     parser.add_argument(
-        "--threads", type=int, default=8,
-        help="并发线程数（默认 8，网络允许可调大）",
+        "--threads", type=int, default=4,
+        help="并发线程数（默认 4，避免触发 MET 限流；被封禁后调小）",
     )
     args = parser.parse_args()
 
@@ -169,13 +211,20 @@ def main():
     max_objects = args.max_objects or cfg.get("max_objects", 50000)
     threads = args.threads
     department_ids = cfg.get("department_ids", [6, 12, 13])
+    search_keywords = cfg.get("search_keywords", [])
     medium_keywords = cfg.get("medium_keywords", [])
     max_side = cfg.get("image_max_side", 1024)
     api_base = cfg["met_api_base"]
 
-    # 1. 收集候选 objectID
+    # 1. 收集候选 objectID（优先方案 B 关键词搜索，请求量小）
     logger.info("获取 objectID 列表...")
-    object_ids = get_object_ids(api_base, department_ids)
+    if search_keywords:
+        logger.info("使用方案 B：关键词搜索（请求量小，不易限流）")
+        object_ids = get_object_ids_by_search(api_base, search_keywords)
+        medium_keywords = []   # search 已过滤，无需再按材质过滤
+    else:
+        logger.info("使用方案 A：部门全量枚举（覆盖广，请求量大）")
+        object_ids = get_object_ids_by_department(api_base, department_ids)
     logger.info("共 %d 个候选对象", len(object_ids))
 
     # 2. 断点续传：跳过已下载的
@@ -193,6 +242,7 @@ def main():
     records = []
     stop_event = threading.Event()
     save_lock = threading.Lock()
+    stats = {"ok": 0, "skip": 0, "rate_limit": 0, "error": 0}
     logger.info("开始并发下载（上限 %d 件，线程 %d，待处理 %d 件）...", max_objects, threads, len(todo))
 
     BATCH = threads * 2   # 每批提交的任务数
@@ -208,13 +258,22 @@ def main():
                 for oid in batch
             ]
             for fut in as_completed(futures):
-                record = fut.result()
+                status, record = fut.result()
+                stats[status] += 1
                 if record:
                     with save_lock:
                         records.append(record)
                         done.add(record["object_id"])
                         if len(done) >= max_objects:
                             stop_event.set()   # 通知其余任务停止
+
+                scanned = sum(stats.values())
+                # 心跳：每 300 个候选打印一次推进情况（观察命中率/是否被限流）
+                if scanned % 300 == 0:
+                    logger.info(
+                        "心跳: 扫描 %d | 命中 %d | 跳过 %d | 限流 %d | 错误 %d | 图片 %d",
+                        scanned, stats["ok"], stats["skip"], stats["rate_limit"], stats["error"], len(done),
+                    )
                 # 每 50 件落盘一次进度与 CSV（防意外中断丢失）
                 with save_lock:
                     if 0 < len(records) % 50 == 0:

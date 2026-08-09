@@ -14,7 +14,8 @@ data:
   max_objects: 50000          # 采集上限
   met_api_base: "https://collectionapi.metmuseum.org/public/collection/v1"
   wikidata_sparql_endpoint: "https://query.wikidata.org/sparql"
-  department_ids: [6, 12, 13]   # 亚洲&希腊罗马&中世纪艺术
+  department_ids: [6, 12, 13]   # 亚洲&希腊罗马&中世纪艺术（方案A备用）
+  search_keywords: ["pottery", "vase", "bowl", "bronze", "jade", "porcelain", "ceramic", "sculpture", "figurine", "celadon", "earthenware", "stoneware", "vessel", "jar", "urn", "statue", "coin", "mirror"]   # 方案B：关键词搜索
   medium_keywords: ["Ceramic", "Bronze", "Jade", "Pottery", "Porcelain", "Stoneware", "Earthenware", "Celadon", "Copper", "Silver", "Ivory", "Terracotta"]
 
 # ---------- 特征提取 ----------

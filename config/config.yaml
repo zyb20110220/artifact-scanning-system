@@ -19,8 +19,8 @@ data:
 features:
   dinov2_model: "facebook/dinov2-base"      # 768 维
   clip_model: "openai/clip-vit-base-patch32" # 512 维
-  batch_size: 64
-  device: cuda
+  batch_size: 16                            # CPU 推理调小 batch，避免内存暴涨
+  device: cpu                               # 无 GPU，CPU 推理
 
 # ---------- 向量检索 ----------
 retrieval:
@@ -32,17 +32,22 @@ retrieval:
 
 # ---------- 知识图谱 ----------
 kg:
-  uri: "bolt://localhost:7687"
+  uri: "bolt://neo4j:7687"   # Docker 容器内用服务名通信；本机直接运行时改回 bolt://localhost:7687
   user: "neo4j"
   database: "neo4j"
 
 # ---------- 多模态 LLM ----------
+# 无 GPU：优先走云端 API（推荐）；本地 CPU 推理极慢，仅作进阶
 llm:
-  model_name: "Qwen/Qwen2.5-VL-7B-Instruct"
-  load_in_4bit: true
+  mode: api                     # api（云端）/ local（本地）
+  api_base: "https://dashscope.aliyuncs.com/compatible-mode/v1"  # 阿里百炼 OpenAI 兼容端点
+  api_key_env: "QWEN_API_KEY"   # API Key 从环境变量读取，不写入本文件
+  model: "qwen-vl-max"          # 云端模型名
+  # ---- 本地模式（可选，仅当有 GPU 或接受极慢速度）----
+  # model_name: "Qwen/Qwen2.5-VL-7B-Instruct"
+  # load_in_4bit: false          # CPU 不支持 4bit 量化
   max_new_tokens: 1024
   temperature: 0.3
-  # 显存不足可切换: Qwen/Qwen2.5-VL-3B-Instruct
 
 # ---------- 微调 (LoRA) ----------
 lora:

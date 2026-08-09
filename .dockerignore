@@ -1,0 +1,13 @@
+.git/
+data/
+models/
+.env
+docs/
+notebooks/
+tests/
+*.md
+__pycache__/
+*.py[cod]
+.gitignore
+Dockerfile
+docker-compose.yml

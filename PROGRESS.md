@@ -5,7 +5,7 @@
 > - 关键决策与踩坑记录（便于复盘）
 
 **仓库**：https://github.com/zyb20110220/artifact-scanning-system
-**当前阶段**：阶段 1（数据准备与环境搭建）— 未开始
+**当前阶段**：阶段 1（数据准备与环境搭建）— 进行中（1.1 环境搭建 ✅）
 
 ---
 
@@ -15,7 +15,7 @@
 
 | # | 任务 | 状态 | 完成日期 | 备注 |
 |---|---|---|---|---|
-| 1.1 | 创建 Conda 环境并安装全部依赖，锁定版本，生成 requirements.txt | ⬜ | | |
+| 1.1 | 搭建开发环境并安装全部依赖，锁定版本，生成 requirements.txt | ✅ | 2026-08-09 | 无 GPU → 改用 Docker 容器 + CPU 方案；requirements.txt 已调整为 CPU 版 |
 | 1.2 | 编写数据下载脚本（MET API），获取 1-5 万张文物图片 + 元数据 | ⬜ | | |
 | 1.3 | 下载 DINOv2 / CLIP 模型，为图片提取特征向量，存为 Parquet | ⬜ | | |
 | 1.4 | 构建 FAISS 索引（HNSW），关联向量与图像路径 | ⬜ | | |
@@ -27,12 +27,15 @@
 <details>
 <summary><b>环境搭建</b></summary>
 
-- [ ] 2026-XX-XX：创建 conda 环境 `artifact` (Python 3.10)
-  - 遇到的问题：
-  - 解决方案：
-- [ ] 2026-XX-XX：安装 PyTorch 2.4.1 (CUDA 12.1)
-  - 遇到的问题：
-  - 解决方案：
+- [x] 2026-08-09：创建 Docker 项目骨架（Dockerfile + docker-compose + .env + .dockerignore）
+  - 遇到的问题：机器无 NVIDIA GPU，原 GPU 计划不可行
+  - 解决方案：改用 CPU 路线（Docker CPU 镜像 + faiss-cpu + 云端 LLM API）
+- [x] 2026-08-09：安装依赖（CPU 版 PyTorch 2.4.1 + transformers 4.43.3 等），镜像构建成功
+  - 遇到的问题：Docker Hub 被墙，公共镜像加速器全部失效
+  - 解决方案：配置机场代理（http://127.0.0.1:7897）到 Docker Desktop
+- [x] 2026-08-09：启动 Neo4j 容器，浏览器控制台 + Python 驱动均验证连接成功
+  - 遇到的问题：无（Neo4j 用 Docker 本地容器，无需注册账号）
+  - 解决方案：NEO4J_AUTH 用 .env 密码初始化
 </details>
 
 <details>
@@ -117,6 +120,13 @@
 ---
 
 ## 🗒️ 踩坑与经验记录（随时追加）
+
+| 日期 | 问题 | 原因 | 解决方案 |
+|---|---|---|---|
+| 2026-08-09 | Docker Hub 拉取镜像 `unexpected EOF` | 国内网络无法访问 Docker Hub | Docker Desktop → Resources → Proxies 配置机场代理 `127.0.0.1:7897` |
+| 2026-08-09 | 公共镜像加速器全部失效 | 2024 起国内 Docker 加速器陆续关停 | 用机场代理替代 |
+| 2026-08-09 | bitsandbytes 4bit 量化不可用 | 仅支持 CUDA，机器无 GPU | 删除该依赖，LLM 推理改云端 API |
+| 2026-08-09 | Neo4j 云服务(AuraDB)需注册且中国不可用 | 云服务需 Google 账号登录 | 改用 Docker 本地容器，无需账号 |
 
 | 日期 | 模块 | 问题 | 解决方案 |
 |---|---|---|---|

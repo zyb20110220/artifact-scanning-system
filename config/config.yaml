@@ -14,6 +14,8 @@ data:
   max_objects: 50000          # 采集上限
   met_api_base: "https://collectionapi.metmuseum.org/public/collection/v1"
   wikidata_sparql_endpoint: "https://query.wikidata.org/sparql"
+  department_ids: [6, 12, 13]   # 亚洲&希腊罗马&中世纪艺术
+  medium_keywords: ["Ceramic", "Bronze", "Jade", "Pottery", "Porcelain", "Stoneware", "Earthenware", "Celadon", "Copper", "Silver", "Ivory", "Terracotta"]
 
 # ---------- 特征提取 ----------
 features:

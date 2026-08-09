@@ -26,6 +26,9 @@ services:
       NEO4J_PASSWORD: "${NEO4J_PASSWORD}"
     volumes:
       - ./data:/app/data
+      - ./scripts:/app/scripts # 开发期挂载代码，改动即时生效（免重建镜像）
+      - ./config:/app/config
+      - ./src:/app/src
 
 volumes:
   neo4j_data:

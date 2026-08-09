@@ -20,7 +20,7 @@
 | 1.3 | 下载 DINOv2 / CLIP 模型，为图片提取特征向量，存为 Parquet | ✅ | 2026-08-09 | DINOv2 提取 299 张 → (299,768) L2 归一化 → parquet/npy/id_map |
 | 1.4 | 构建 FAISS 索引（HNSW），关联向量与图像路径 | ✅ | 2026-08-09 | HNSW(IP/余弦) 299 向量，自测 5/5，真实检索 Top-5 相似度 0.60-1.0 |
 | 1.5 | 从 Wikidata 抽取文物 KG 三元组，导入 Neo4j | ✅ | 2026-08-09 | 本地 299 件 + Wikidata 补全时期/文化(41/80匹配)；节点 299+45+37，关系 220 |
-| 1.6 | 数据获取代码纯软件实现、可重复执行 | ⬜ | | |
+| 1.6 | 数据获取代码纯软件实现、可重复执行 | ✅ | 2026-08-09 | DVC 管理 data/；复现文档；幂等验证通过 |
 
 ### 进度日志
 
@@ -79,6 +79,16 @@
   - 遇到的问题：MET 藏品在 Wikidata 直接关联覆盖极低(<0.2%)；label 精确匹配率仅 8%；关系 MERGE 误建重复节点
   - 解决方案：归一化(去括号)匹配提升到 51%；两阶段导入(先节点+唯一约束，再关系)修复重复
   - 结果：Artifact 299 + Culture 45 + Period 37，关系 220；Wikidata 补全时间范围(如唐 618-907)
+</details>
+
+<details>
+<summary><b>可复现性</b></summary>
+
+- [x] 2026-08-09：DVC 初始化并跟踪 data/（data.dvc 指针，306 文件 23MB）
+  - 遇到的问题：data/ 已被 git 跟踪（data/README.md 未排除）
+  - 解决方案：git rm --cached data 后交 DVC 管理
+- [x] 2026-08-09：编写 docs/reproducibility.md（环境/复现流程/可重复性保证/数据许可）
+- [x] 2026-08-09：幂等性验证（重跑 build_kg.py 节点数不变 381）
 </details>
 
 ---
@@ -170,6 +180,7 @@
 | 2026-08-09 | faiss 导入报 numpy.core.multiarray failed | numpy 2.x 移除 numpy.core，faiss 1.7.4 不兼容 | 锁定 numpy==1.26.4 并重建镜像 |
 | 2026-08-09 | Neo4j 关系 MERGE 误建重复节点 | 关系语句中的 MERGE (c:Culture {name}) 匹配歧义时创建新节点 | 两阶段导入：先建节点+唯一约束，关系用 MATCH 已存在节点再 MERGE |
 | 2026-08-09 | Wikidata label 精确匹配率低(8%) | 本地词带括号年份(如 "Tang dynasty (618–907)") | 归一化提取括号前主干，匹配率提升到 51% |
+| 2026-08-09 | DVC 报 data 已被 Git 跟踪 | data/README.md 未被 .gitignore 排除 | git rm --cached data 后交 DVC 管理 |
 
 | 日期 | 模块 | 问题 | 解决方案 |
 |---|---|---|---|

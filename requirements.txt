@@ -34,7 +34,7 @@ neo4j>=5.19.0
 
 # ---------- 数据与处理 ----------
 pandas>=2.0.0
-numpy>=1.26.0
+numpy==1.26.4   # faiss 1.7.4 不兼容 numpy 2.x，必须锁定 <2.0
 Pillow>=10.0.0
 requests>=2.31.0
 pyarrow>=15.0.0   # Parquet

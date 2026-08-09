@@ -29,6 +29,7 @@ features:
 retrieval:
   index_type: HNSW             # HNSW / IVF
   hnsw_m: 32                   # HNSW 邻居数
+  metric: ip                   # l2 / ip（向量已归一化，ip=余弦相似度，分数可直接当相似度）
   top_k: 5
   index_path: data/features/dinov2_hnsw.index
   id_map_path: data/features/id_map.json

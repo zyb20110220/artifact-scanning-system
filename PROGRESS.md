@@ -18,7 +18,7 @@
 | 1.1 | 搭建开发环境并安装全部依赖，锁定版本，生成 requirements.txt | ✅ | 2026-08-09 | 无 GPU → 改用 Docker 容器 + CPU 方案；requirements.txt 已调整为 CPU 版 |
 | 1.2 | 编写数据下载脚本（MET API），获取 1-5 万张文物图片 + 元数据 | ✅(部分) | 2026-08-09 | 下载 299 件（MET 限流严，1571 候选仅命中 299）；够阶段 2 演示用，后续可补充 |
 | 1.3 | 下载 DINOv2 / CLIP 模型，为图片提取特征向量，存为 Parquet | ✅ | 2026-08-09 | DINOv2 提取 299 张 → (299,768) L2 归一化 → parquet/npy/id_map |
-| 1.4 | 构建 FAISS 索引（HNSW），关联向量与图像路径 | ⬜ | | |
+| 1.4 | 构建 FAISS 索引（HNSW），关联向量与图像路径 | ✅ | 2026-08-09 | HNSW(IP/余弦) 299 向量，自测 5/5，真实检索 Top-5 相似度 0.60-1.0 |
 | 1.5 | 从 Wikidata 抽取 1000 个文物 KG 三元组，导入 Neo4j | ⬜ | | |
 | 1.6 | 数据获取代码纯软件实现、可重复执行 | ⬜ | | |
 
@@ -61,6 +61,15 @@
   - 遇到的问题：容器内访问 HuggingFace 需代理（容器内 127.0.0.1 非宿主机）
   - 解决方案：docker-compose 加 HTTP_PROXY=http://host.docker.internal:7897
   - 结果：(299,768) L2 归一化 → parquet + npy + id_map（耗时约 2 分钟）
+</details>
+
+<details>
+<summary><b>索引构建</b></summary>
+
+- [x] 2026-08-09：FAISS HNSW 索引构建 + 自测
+  - 遇到的问题：faiss 1.7.4 不兼容 numpy 2.x（numpy.core.multiarray failed）
+  - 解决方案：锁定 numpy==1.26.4 并重建镜像
+  - 结果：HNSW(IP/余弦) 299 向量，自测 5/5，真实检索 Top-5 相似度 0.60-1.0
 </details>
 
 ---
@@ -149,6 +158,7 @@
 | 2026-08-09 | MET API 返回 403 Forbidden 封禁 | 8 线程持续高频请求触发限流 | 降并发到 4 + 请求间隔；改用方案 B 关键词搜索（请求量小约 10 倍） |
 | 2026-08-09 | MET 详情端点 429 限流频繁（1571 候选仅命中 299） | MET 对 /objects/{id} 配额极严 | 接受 299 件先用；后续慢速分批或申请 MET API Key |
 | 2026-08-09 | 容器内无法访问 HuggingFace 下载模型 | 容器内 127.0.0.1 非宿主机 | docker-compose 加 HTTP_PROXY=http://host.docker.internal:7897 |
+| 2026-08-09 | faiss 导入报 numpy.core.multiarray failed | numpy 2.x 移除 numpy.core，faiss 1.7.4 不兼容 | 锁定 numpy==1.26.4 并重建镜像 |
 
 | 日期 | 模块 | 问题 | 解决方案 |
 |---|---|---|---|

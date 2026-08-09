@@ -24,6 +24,10 @@ services:
     environment:
       QWEN_API_KEY: "${QWEN_API_KEY}"
       NEO4J_PASSWORD: "${NEO4J_PASSWORD}"
+      # 容器内访问 HuggingFace / 外网走宿主机代理（host.docker.internal 指向宿主机）
+      HTTP_PROXY: "http://host.docker.internal:7897"
+      HTTPS_PROXY: "http://host.docker.internal:7897"
+      NO_PROXY: "localhost,127.0.0.1,neo4j"
     volumes:
       - ./data:/app/data
       - ./scripts:/app/scripts # 开发期挂载代码，改动即时生效（免重建镜像）

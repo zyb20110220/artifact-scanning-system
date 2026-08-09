@@ -1,0 +1,58 @@
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+*.ipynb_checkpoints/
+
+# ---------- 环境 ----------
+.venv/
+venv/
+env/
+
+# ---------- 数据（大文件用 DVC，不入库）----------
+data/raw/
+data/features/
+data/kg/
+*.npy
+*.parquet
+*.faiss
+*.index
+
+# ---------- 模型权重（体积大，下载/挂载）----------
+models/
+*.bin
+*.pt
+*.pth
+*.safetensors
+*.gguf
+
+# ---------- 密钥与本地配置 ----------
+.env
+*.env
+config/secret*.yaml
+config/secret*.json
+
+# ---------- 实验产物 ----------
+runs/
+wandb/
+lightning_logs/
+tensorboard/
+results/
+checkpoints/
+outputs/
+
+# ---------- IDE / OS ----------
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ---------- DVC ----------
+.dvc/tmp/

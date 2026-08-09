@@ -1,0 +1,62 @@
+# 全局配置模板（阶段 1 起逐步填充）
+# 敏感信息（API Key、数据库密码）请放入 secret.yaml / .env，不入库
+
+# ---------- 数据 ----------
+data:
+  raw_dir: data/raw
+  feature_dir: data/features
+  kg_dir: data/kg
+  image_max_side: 1024        # 图片最长边
+  target_categories:          # 目标文物类别（MET）
+    - Ceramics
+    - Metalwork
+    - Sculpture
+  max_objects: 50000          # 采集上限
+  met_api_base: "https://collectionapi.metmuseum.org/public/collection/v1"
+  wikidata_sparql_endpoint: "https://query.wikidata.org/sparql"
+
+# ---------- 特征提取 ----------
+features:
+  dinov2_model: "facebook/dinov2-base"      # 768 维
+  clip_model: "openai/clip-vit-base-patch32" # 512 维
+  batch_size: 64
+  device: cuda
+
+# ---------- 向量检索 ----------
+retrieval:
+  index_type: HNSW             # HNSW / IVF
+  hnsw_m: 32                   # HNSW 邻居数
+  top_k: 5
+  index_path: data/features/dinov2_hnsw.index
+  id_map_path: data/features/id_map.json
+
+# ---------- 知识图谱 ----------
+kg:
+  uri: "bolt://localhost:7687"
+  user: "neo4j"
+  database: "neo4j"
+
+# ---------- 多模态 LLM ----------
+llm:
+  model_name: "Qwen/Qwen2.5-VL-7B-Instruct"
+  load_in_4bit: true
+  max_new_tokens: 1024
+  temperature: 0.3
+  # 显存不足可切换: Qwen/Qwen2.5-VL-3B-Instruct
+
+# ---------- 微调 (LoRA) ----------
+lora:
+  r: 8
+  alpha: 16
+  dropout: 0.05
+  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj"]
+  gradient_checkpointing: true
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  num_epochs: 3
+  data_path: "data/train/train_data.jsonl"
+
+# ---------- 前端 ----------
+app:
+  host: "0.0.0.0"
+  port: 7860

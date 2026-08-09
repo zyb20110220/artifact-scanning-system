@@ -1,0 +1,58 @@
+# ============================================================
+# 考古文物断代与鉴定系统 — 依赖清单
+# 目标版本（阶段 1 任务 1.1：锁定版本并验证兼容性后填写 ✅）
+# 安装顺序建议：先装 PyTorch（见下方注释），再装其余
+# ============================================================
+
+# ---------- 深度学习框架 ----------
+# PyTorch 需按 CUDA 版本单独安装，示例（CUDA 12.1）：
+#   pip install torch==2.4.1 torchvision==0.19.1 --index-url https://download.pytorch.org/whl/cu121
+torch==2.4.1
+torchvision==0.19.1
+transformers==4.43.3
+peft==0.11.1
+bitsandbytes==0.43.1
+accelerate>=0.33.0
+# xformers==0.0.27.post2  # 可选，Windows 不支持，Linux/WSL2 才启用
+
+# ---------- 视觉模型 ----------
+# DINOv2: facebook/dinov2-base （通过 transformers 加载，无需额外包）
+# CLIP:   openai/clip-vit-base-patch32 （transformers 内置）
+
+# ---------- 多模态 LLM ----------
+# Qwen2.5-VL-7B-Instruct
+qwen-vl-utils>=0.0.7
+# 使用 transformers 的 chat template 构建消息（langchain 可选，默认不装）
+
+# ---------- 向量检索 ----------
+faiss-cpu==1.7.4
+# faiss-gpu==1.7.4  # Linux/WSL2 且有 NVIDIA GPU 时使用
+
+# ---------- 知识图谱 ----------
+neo4j>=5.19.0
+
+# ---------- 数据与处理 ----------
+pandas>=2.0.0
+numpy>=1.26.0
+Pillow>=10.0.0
+requests>=2.31.0
+pyarrow>=15.0.0   # Parquet
+tqdm>=4.66.0
+huggingface_hub>=0.23.0
+
+# ---------- 前端 Demo ----------
+gradio>=4.26.0
+
+# ---------- 可视化 ----------
+matplotlib>=3.8.0
+plotly>=5.18.0
+networkx>=3.2.0
+pyvis>=0.3.2     # 证据链网络图
+
+# ---------- 实验管理 ----------
+tensorboard>=2.15.0
+optuna>=3.5.0
+# wandb>=0.16.0    # 可选：推荐免费层
+
+# ---------- 数据版本控制 ----------
+dvc>=3.0.0

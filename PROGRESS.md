@@ -19,7 +19,7 @@
 | 1.2 | 编写数据下载脚本（MET API），获取 1-5 万张文物图片 + 元数据 | ✅(部分) | 2026-08-09 | 下载 299 件（MET 限流严，1571 候选仅命中 299）；够阶段 2 演示用，后续可补充 |
 | 1.3 | 下载 DINOv2 / CLIP 模型，为图片提取特征向量，存为 Parquet | ✅ | 2026-08-09 | DINOv2 提取 299 张 → (299,768) L2 归一化 → parquet/npy/id_map |
 | 1.4 | 构建 FAISS 索引（HNSW），关联向量与图像路径 | ✅ | 2026-08-09 | HNSW(IP/余弦) 299 向量，自测 5/5，真实检索 Top-5 相似度 0.60-1.0 |
-| 1.5 | 从 Wikidata 抽取 1000 个文物 KG 三元组，导入 Neo4j | ⬜ | | |
+| 1.5 | 从 Wikidata 抽取文物 KG 三元组，导入 Neo4j | ✅ | 2026-08-09 | 本地 299 件 + Wikidata 补全时期/文化(41/80匹配)；节点 299+45+37，关系 220 |
 | 1.6 | 数据获取代码纯软件实现、可重复执行 | ⬜ | | |
 
 ### 进度日志
@@ -70,6 +70,15 @@
   - 遇到的问题：faiss 1.7.4 不兼容 numpy 2.x（numpy.core.multiarray failed）
   - 解决方案：锁定 numpy==1.26.4 并重建镜像
   - 结果：HNSW(IP/余弦) 299 向量，自测 5/5，真实检索 Top-5 相似度 0.60-1.0
+</details>
+
+<details>
+<summary><b>图谱构建</b></summary>
+
+- [x] 2026-08-09：build_kg.py 构建知识图谱并导入 Neo4j
+  - 遇到的问题：MET 藏品在 Wikidata 直接关联覆盖极低(<0.2%)；label 精确匹配率仅 8%；关系 MERGE 误建重复节点
+  - 解决方案：归一化(去括号)匹配提升到 51%；两阶段导入(先节点+唯一约束，再关系)修复重复
+  - 结果：Artifact 299 + Culture 45 + Period 37，关系 220；Wikidata 补全时间范围(如唐 618-907)
 </details>
 
 ---
@@ -159,6 +168,8 @@
 | 2026-08-09 | MET 详情端点 429 限流频繁（1571 候选仅命中 299） | MET 对 /objects/{id} 配额极严 | 接受 299 件先用；后续慢速分批或申请 MET API Key |
 | 2026-08-09 | 容器内无法访问 HuggingFace 下载模型 | 容器内 127.0.0.1 非宿主机 | docker-compose 加 HTTP_PROXY=http://host.docker.internal:7897 |
 | 2026-08-09 | faiss 导入报 numpy.core.multiarray failed | numpy 2.x 移除 numpy.core，faiss 1.7.4 不兼容 | 锁定 numpy==1.26.4 并重建镜像 |
+| 2026-08-09 | Neo4j 关系 MERGE 误建重复节点 | 关系语句中的 MERGE (c:Culture {name}) 匹配歧义时创建新节点 | 两阶段导入：先建节点+唯一约束，关系用 MATCH 已存在节点再 MERGE |
+| 2026-08-09 | Wikidata label 精确匹配率低(8%) | 本地词带括号年份(如 "Tang dynasty (618–907)") | 归一化提取括号前主干，匹配率提升到 51% |
 
 | 日期 | 模块 | 问题 | 解决方案 |
 |---|---|---|---|

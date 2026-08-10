@@ -102,7 +102,7 @@
 | 2.1 | 图片上传 → DINOv2 特征提取 → FAISS Top-5 检索 | ✅ | 2026-08-10 | src/ 模块化；ArtifactSearchService 验证通过（Top-5） |
 | 2.2 | 从 Neo4j 查询每件文物的年代、出土地等 | ✅ | 2026-08-10 | src/kg/query.py；检索结果自动附带时期/文化 |
 | 2.3 | Gradio 界面：上传图片显示相似文物图像 + 元数据 | ✅ | 2026-08-10 | app/app.py 运行正常，浏览器验证通过；检索精度待 2.4 调优 |
-| 2.4 | 人工标注数据上评估 Top-5 准确率，调优参数 | ⬜ | | |
+| 2.4 | 人工标注数据上评估 Top-5 准确率，调优参数 | 🔄 | 2026-08-10 | 基线 P@5=0.213, R@5=0.369；Flemish/Maya 好，China 差（culture 标签过宽）|
 
 ### 进度日志
 
@@ -122,6 +122,10 @@
   - 解决方案：修复挂载换行（docker compose config 验证）；app.py 加 sys.path 项目根
   - 结果：浏览器上传 → 相似文物画廊 + 信息表格，用户验证通过（无异常）
   - 待办：检索精度不足（299 件数据量小/类别混杂），2.4 评估调优
+- [x] 2026-08-10：检索评估脚本 evaluate.py（culture 作同类标准，60 个有标签文物）
+  - 基线：Precision@5=0.213, Recall@5=0.369（远好于随机≈0.02）
+  - 洞察：Flemish 3.0/5, Maya 2.17/5 表现好；China 0.27/5 差（culture 标签过宽，跨朝代）
+  - 结论：检索有效，精度受"同类定义粗糙 + 数据稀疏"限制
 </details>
 
 ---
@@ -193,6 +197,7 @@
 | 2026-08-09 | DVC 报 data 已被 Git 跟踪 | data/README.md 未被 .gitignore 排除 | git rm --cached data 后交 DVC 管理 |
 | 2026-08-10 | docker-compose YAML 挂载行粘合 | 编辑时换行丢失 | 用 docker compose config 验证挂载源 |
 | 2026-08-10 | python app/app.py 找不到 src | 脚本目录不在 sys.path | app.py 顶部 sys.path.insert 项目根 |
+| 2026-08-10 | 检索评估中 culture 标签过宽 | 同 culture(如 China)跨多个朝代，视觉差异大 | 可改用 period/medium 作更精细真值 |
 
 | 日期 | 模块 | 问题 | 解决方案 |
 |---|---|---|---|

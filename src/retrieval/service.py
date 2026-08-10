@@ -7,11 +7,13 @@
   输入一张图片路径 → 输出 Top-K 相似文物（含路径 + 相似度）
 供后续 Gradio 界面直接调用。
 """
+import os
 from pathlib import Path
 
 import yaml
 
 from src.features.dinov2 import extract_feature
+from src.kg.query import query_artifact_info
 from src.retrieval.faiss_index import search
 
 ROOT = Path(__file__).resolve().parents[2]          # src/retrieval/ -> 项目根
@@ -23,24 +25,35 @@ def load_config():
 
 
 class ArtifactSearchService:
-    """文物检索服务：封装图片检索的核心流程"""
+    """文物检索服务：封装图片检索 + 图谱查询的核心流程"""
 
     def __init__(self, config_path=None):
         cfg = load_config() if config_path is None else _load(config_path)
         retr = cfg["retrieval"]
         feat = cfg["features"]
+        kg = cfg["kg"]
         self.top_k = retr.get("top_k", 5)
         self.model_name = feat.get("dinov2_model", "facebook/dinov2-base")
         self.index_path = ROOT / retr["index_path"]
         self.id_map_path = ROOT / retr["id_map_path"]
+        self.kg_uri = kg["uri"]
+        self.kg_user = kg["user"]
+        self.kg_password = os.environ.get("NEO4J_PASSWORD", "")
 
-    def search_by_image(self, image_path, top_k=None):
-        """核心入口：图片路径 → Top-K 相似文物"""
+    def search_by_image(self, image_path, top_k=None, with_kg=True):
+        """核心入口：图片路径 → Top-K 相似文物（可附带图谱信息）"""
         k = top_k or self.top_k
         # 1. 特征提取
         vec = extract_feature(image_path, model_name=self.model_name)
         # 2. FAISS 检索
         results = search(vec, top_k=k, index_path=self.index_path, id_map_path=self.id_map_path)
+        # 3. 图谱查询：为每条结果附带年代/文化
+        if with_kg:
+            for r in results:
+                oid = r["image_path"].split("/")[-1].replace(".jpg", "")
+                r["kg"] = query_artifact_info(
+                    oid, self.kg_uri, self.kg_user, self.kg_password
+                )
         return results
 
 

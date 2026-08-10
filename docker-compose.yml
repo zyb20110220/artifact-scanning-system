@@ -42,5 +42,7 @@ services:
       - ./config:/app/config
       - ./src:/app/src
       - ./app:/app/app
+      - hf_cache:/root/.cache/huggingface   # 模型缓存持久化：DINOv2/CLIP 只下载一次，冷启动免重新下载
 volumes:
   neo4j_data:
+  hf_cache:

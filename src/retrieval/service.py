@@ -12,7 +12,7 @@ from pathlib import Path
 
 import yaml
 
-from src.features.dinov2 import extract_feature
+from src.features.hybrid import extract_hybrid_feature
 from src.kg.query import query_artifact_info
 from src.retrieval.faiss_index import search
 
@@ -33,9 +33,16 @@ class ArtifactSearchService:
         feat = cfg["features"]
         kg = cfg["kg"]
         self.top_k = retr.get("top_k", 5)
-        self.model_name = feat.get("dinov2_model", "facebook/dinov2-base")
+        self.dinov2_model = feat.get("dinov2_model", "facebook/dinov2-base")
+        self.clip_model = feat.get("clip_model", "openai/clip-vit-base-patch32")
+        self.use_hybrid = feat.get("hybrid", True)
         self.index_path = ROOT / retr["index_path"]
         self.id_map_path = ROOT / retr["id_map_path"]
+        self.vecs_path = ROOT / feat.get("feature_file", "data/features/hybrid_features.npy")
+        # Rerank：粗筛 Top-N → 高 CLIP 权重精排（实验提升 culture P@5 0.316→0.343）
+        self.rerank_top_n = retr.get("rerank_top_n", None)
+        self.rerank_wd = retr.get("rerank_wd", 0.2)
+        self.rerank_wc = retr.get("rerank_wc", 1.0)
         self.kg_uri = kg["uri"]
         self.kg_user = kg["user"]
         self.kg_password = os.environ.get("NEO4J_PASSWORD", "")
@@ -43,10 +50,21 @@ class ArtifactSearchService:
     def search_by_image(self, image_path, top_k=None, with_kg=True):
         """核心入口：图片路径 → Top-K 相似文物（可附带图谱信息）"""
         k = top_k or self.top_k
-        # 1. 特征提取
-        vec = extract_feature(image_path, model_name=self.model_name)
-        # 2. FAISS 检索
-        results = search(vec, top_k=k, index_path=self.index_path, id_map_path=self.id_map_path)
+        # 1. 特征提取（默认混合特征 DINOv2+CLIP；可回退纯 DINOv2）
+        if self.use_hybrid:
+            vec = extract_hybrid_feature(
+                image_path, dinov2_model=self.dinov2_model, clip_model=self.clip_model
+            )
+        else:
+            from src.features.dinov2 import extract_feature
+            vec = extract_feature(image_path, model_name=self.dinov2_model)
+        # 2. FAISS 检索（启用 Rerank 精排）
+        results = search(
+            vec, top_k=k,
+            index_path=self.index_path, id_map_path=self.id_map_path,
+            vecs_path=self.vecs_path,
+            top_n=self.rerank_top_n, wd=self.rerank_wd, wc=self.rerank_wc,
+        )
         # 3. 图谱查询：为每条结果附带年代/文化
         if with_kg:
             for r in results:

@@ -79,6 +79,8 @@ def self_check(index, vectors, id_map):
 def main():
     parser = argparse.ArgumentParser(description="构建 FAISS HNSW 索引")
     parser.add_argument("--metric", default=None, help="l2 / ip（覆盖 config）")
+    parser.add_argument("--feature-file", default=None,
+                        help="特征 npy 文件名（默认 dinov2_features.npy；混合特征传 hybrid_features.npy）")
     args = parser.parse_args()
 
     cfg = load_config()["retrieval"]
@@ -88,8 +90,9 @@ def main():
     id_map_path = ROOT / cfg.get("id_map_path", "data/features/id_map.json")
 
     # 1. 读取特征
-    vectors = np.load(FEATURE_DIR / "dinov2_features.npy")
-    logger.info("加载特征: %s", vectors.shape)
+    feature_file = args.feature_file or "dinov2_features.npy"
+    vectors = np.load(FEATURE_DIR / feature_file)
+    logger.info("特征文件: %s | %s", feature_file, vectors.shape)
 
     # 2. 读取 id_map（向量索引 → 图片路径）
     with open(id_map_path, "r", encoding="utf-8") as f:

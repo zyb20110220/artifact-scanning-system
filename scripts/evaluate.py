@@ -39,14 +39,23 @@ def main():
     parser.add_argument("--standard", default="culture",
                         choices=["culture", "period", "medium"],
                         help="同类判定标准（默认 culture）")
+    parser.add_argument("--feature-file", default="dinov2_features.npy",
+                        help="特征 npy 文件名（混合特征传 hybrid_features.npy）")
+    parser.add_argument("--index-file", default="dinov2_hnsw.index",
+                        help="FAISS 索引文件名（混合特征传 hybrid_hnsw.index）")
+    parser.add_argument("--rerank-top-n", type=int, default=None,
+                        help="启用 Rerank：粗筛 Top-N → 高 CLIP 权重精排（需 1280 维混合特征）")
+    parser.add_argument("--rerank-wd", type=float, default=0.2, help="Rerank DINOv2 权重")
+    parser.add_argument("--rerank-wc", type=float, default=1.0, help="Rerank CLIP 权重")
     args = parser.parse_args()
     standard = args.standard
 
     df = pd.read_csv(METADATA_CSV)
-    vecs = np.load(FEATURE_DIR / "dinov2_features.npy")
+    vecs = np.load(FEATURE_DIR / args.feature_file)
     with open(FEATURE_DIR / "id_map.json", "r", encoding="utf-8") as f:
         id_map = json.load(f)
-    index = faiss.read_index(str(FEATURE_DIR / "dinov2_hnsw.index"))
+    index = faiss.read_index(str(FEATURE_DIR / args.index_file))
+    print(f"[特征] {args.feature_file} | [索引] {args.index_file} | 向量数 {vecs.shape[0]}, 维度 {vecs.shape[1]}")
 
     # object_id -> 行（快速查找元数据）
     meta_by_oid = {str(r["object_id"]): r for _, r in df.iterrows()}
@@ -75,9 +84,20 @@ def main():
         if total_related <= 0:
             continue                       # 该类只有自己，无法评估
 
-        # 检索 Top-(K+1)（含自己，结果按相似度降序）
-        _, idx = index.search(vecs[i:i + 1], TOP_K + 1)
-        results = [j for j in idx[0] if j != i][:TOP_K]    # 排除自身
+        # 检索（可选 Rerank：粗筛 Top-N → 高 CLIP 权重精排 → Top-K）
+        if args.rerank_top_n and vecs.shape[1] >= 768:
+            _, idx = index.search(vecs[i:i + 1], args.rerank_top_n + 1)
+            cand = [j for j in idx[0] if j != i][:args.rerank_top_n]
+            q = np.concatenate([vecs[i, :768] * args.rerank_wd, vecs[i, 768:] * args.rerank_wc])
+            c = np.concatenate([
+                vecs[cand, :768] * args.rerank_wd, vecs[cand, 768:] * args.rerank_wc
+            ], axis=1)
+            sc = q @ c.T
+            order = np.argsort(-sc)[:TOP_K]
+            results = [cand[o] for o in order]
+        else:
+            _, idx = index.search(vecs[i:i + 1], TOP_K + 1)
+            results = [j for j in idx[0] if j != i][:TOP_K]    # 排除自身
 
         # 统计同类命中
         hits_n = 0

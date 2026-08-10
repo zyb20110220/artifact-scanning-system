@@ -102,7 +102,7 @@
 | 2.1 | 图片上传 → DINOv2 特征提取 → FAISS Top-5 检索 | ✅ | 2026-08-10 | src/ 模块化；ArtifactSearchService 验证通过（Top-5） |
 | 2.2 | 从 Neo4j 查询每件文物的年代、出土地等 | ✅ | 2026-08-10 | src/kg/query.py；检索结果自动附带时期/文化 |
 | 2.3 | Gradio 界面：上传图片显示相似文物图像 + 元数据 | ✅ | 2026-08-10 | app/app.py 运行正常，浏览器验证通过；检索精度待 2.4 调优 |
-| 2.4 | 人工标注数据上评估 Top-5 准确率，调优参数 | ✅ | 2026-08-10 | 初版(299件) P@5: culture 0.213 / period 0.774 / medium 0.569；扩充至 2051 件后：culture 0.367(↑72%) / period 0.598 / medium 0.473 |
+| 2.4 | 人工标注数据上评估 Top-5 准确率，调优参数 | ✅ | 2026-08-10 | 初版(299件) P@5: culture 0.213 / period 0.774 / medium 0.569；扩充至 2051 件 + 混合特征 + Rerank 后：culture 0.401(↑88%) / period 0.613 / medium 0.496 |
 
 ### 进度日志
 
@@ -136,9 +136,15 @@
 - [x] 2026-08-10：补数据完成（299 → 2051 件），全量更新流水线
   - 下载：多轮断点续传，累计 2051 件（第二轮 320 候选无新增——均为 404 失效链接/无图/材质不符）
   - 流水线：extract_features(2051,768) → build_index(HNSW 2051) → build_kg(节点 2051+145+107，关系 1281) → Gradio 重启
-  - 评估（2051 件）：P@5 = culture 0.367（较旧版 0.213 提升 72%）/ period 0.598 / medium 0.473
-  - 洞察：culture 显著提升（数据扩充利文化断代）；period/medium 下降因同类变多稀释 Top-5 + 新增陶瓷/雕塑引入相似外观异类
+  - 评估（2051 件，纯 DINOv2）：P@5 = culture 0.367（较旧版 0.213 提升 72%）/ period 0.598 / medium 0.473
   - 其他：修复 Neo4j healthcheck 超时误判（cypher-shell 冷启动 >5s，timeout 调至 20s + start_period 30s）
+- [x] 2026-08-10：检索优化——混合特征（DINOv2+CLIP）+ Rerank 精排
+  - 混合特征：src/features/{clip,hybrid}.py + scripts/extract_hybrid_features.py，DINOv2(768)+CLIP(512)=1280 维，全量提取重建索引
+  - 实测结论：简单拼接几乎无提升（culture 0.367→0.370）；权重实验证明特征调优上限有限（纯 CLIP 0.346 > 纯 DINOv2 0.314，仅 +0.03）
+  - Rerank 方案 D（粗筛 Top-50 → 高 CLIP 权重重排 0.2D+1.0C）正式评估生效：culture 0.401 / period 0.613 / medium 0.496（较无 Rerank 分别 +8.4% / +2.3% / +4.2%）
+  - 根因判断：准确度瓶颈主要是数据稀疏（2051 件按 culture 细分多类别仅 1-3 件），非特征；混合特征+Rerank 是当前特征层面的最优解
+  - 标签补齐：backfill_metadata.py 补全 1366 件 objectDate/classification/medium；culture/period 为 MET 数据源本身缺失，无法补
+  - 模型缓存：docker-compose 加 hf_cache 卷持久化 HF 模型缓存，app 冷启动从 92s → 15s healthy
   - 待办：下载完成后重跑 特征→索引→图谱 更新
 </details>
 

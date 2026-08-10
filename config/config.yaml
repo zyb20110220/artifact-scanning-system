@@ -21,7 +21,9 @@ data:
 # ---------- 特征提取 ----------
 features:
   dinov2_model: "facebook/dinov2-base"      # 768 维
-  clip_model: "openai/clip-vit-base-patch32" # 512 维
+  clip_model: "openai/clip-vit-base-patch32" # 512 维（与 DINOv2 拼接成 1280 维混合特征）
+  hybrid: true                              # true=用 DINOv2+CLIP 混合特征；false=仅 DINOv2
+  feature_file: data/features/hybrid_features.npy   # 混合特征 npy（Rerank 精排用）
   batch_size: 16                            # CPU 推理调小 batch，避免内存暴涨
   device: cpu                               # 无 GPU，CPU 推理
 
@@ -31,8 +33,12 @@ retrieval:
   hnsw_m: 32                   # HNSW 邻居数
   metric: ip                   # l2 / ip（向量已归一化，ip=余弦相似度，分数可直接当相似度）
   top_k: 5
-  index_path: data/features/dinov2_hnsw.index
+  index_path: data/features/hybrid_hnsw.index
   id_map_path: data/features/id_map.json
+  rerank: true               # 两阶段精排：粗筛 Top-N → 高 CLIP 权重精排 → Top-K
+  rerank_top_n: 50           # 粗筛候选数
+  rerank_wd: 0.2             # 精排 DINOv2 权重
+  rerank_wc: 1.0             # 精排 CLIP 权重
 
 # ---------- 知识图谱 ----------
 kg:

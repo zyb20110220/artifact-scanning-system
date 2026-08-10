@@ -10,9 +10,10 @@ services:
       - neo4j_data:/data
     healthcheck:
       test: [ "CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD}", "RETURN 1" ]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      interval: 10s
+      timeout: 20s          # cypher-shell 冷启动（JVM）较慢，放宽超时避免误判 unhealthy
+      retries: 6
+      start_period: 30s
 
   app:
     build: .

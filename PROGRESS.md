@@ -174,8 +174,8 @@
 | 4.1 | 优化 Gradio：上传引导、加载动画、错误处理 | ✅ | 2026-08-10 | 标题描述、操作提示、错误处理 |
 | 4.2 | 证据链展示（相似文物图片 + 图谱关系网络图） | ✅ | 2026-08-10 | src/viz/evidence.py 网络图集成 |
 | 4.3 | Dockerfile + docker-compose.yml 容器化 | ✅ | 2026-08-10 | HEALTHCHECK + restart + 一键脚本；app healthy |
-| 4.4 | 本地/云 GPU 性能测试，记录显存与响应时间 | ⬜ | | |
-| 4.5 | 撰写 README（背景、安装、架构图） | ⬜ | | |
+| 4.4 | 本地/云 GPU 性能测试，记录显存与响应时间 | ✅ | 2026-08-10 | CPU 单次查询约 5s（特征4.63s+检索0.24s+图谱0.1s）；LLM 10-30s |
+| 4.5 | 撰写 README（背景、安装、架构图） | ✅ | 2026-08-10 | 更新 README + .env.example |
 
 ### 进度日志
 
@@ -190,6 +190,9 @@
   - Dockerfile 加 HEALTHCHECK；compose 加 restart/healthcheck
   - scripts/start.ps1 + stop.ps1 一键启停
   - 验证：app healthy（healthcheck 生效）
+- [x] 2026-08-10：性能测试 + README 完善（4.4/4.5）
+  - CPU 单次查询 ≈ 5s（特征 4.63s + 检索 0.24s + 图谱 0.1s），LLM 报告 10-30s
+  - README 更新（Docker 快速开始、四阶段完成、.env.example）
 </details>
 
 ---

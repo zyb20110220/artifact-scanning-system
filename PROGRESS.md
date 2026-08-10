@@ -101,7 +101,7 @@
 |---|---|---|---|---|
 | 2.1 | 图片上传 → DINOv2 特征提取 → FAISS Top-5 检索 | ✅ | 2026-08-10 | src/ 模块化；ArtifactSearchService 验证通过（Top-5） |
 | 2.2 | 从 Neo4j 查询每件文物的年代、出土地等 | ✅ | 2026-08-10 | src/kg/query.py；检索结果自动附带时期/文化 |
-| 2.3 | Gradio 界面：上传图片显示相似文物图像 + 元数据 | ⬜ | | |
+| 2.3 | Gradio 界面：上传图片显示相似文物图像 + 元数据 | ✅ | 2026-08-10 | app/app.py 运行正常，浏览器验证通过；检索精度待 2.4 调优 |
 | 2.4 | 人工标注数据上评估 Top-5 准确率，调优参数 | ⬜ | | |
 
 ### 进度日志
@@ -117,6 +117,11 @@
   - 遇到的问题：部分文物无图谱信息（metadata culture/period 缺失约 70%）
   - 解决方案：OPTIONAL MATCH + 缺失返回空 dict（结果仍可用）
   - 验证：检索结果自动附带时期/文化（如 706056 → Mughal/Islamic）
+- [x] 2026-08-10：Gradio 界面（app/app.py）
+  - 遇到的问题：compose 挂载 YAML 换行丢失；ModuleNotFoundError src
+  - 解决方案：修复挂载换行（docker compose config 验证）；app.py 加 sys.path 项目根
+  - 结果：浏览器上传 → 相似文物画廊 + 信息表格，用户验证通过（无异常）
+  - 待办：检索精度不足（299 件数据量小/类别混杂），2.4 评估调优
 </details>
 
 ---
@@ -186,6 +191,8 @@
 | 2026-08-09 | Neo4j 关系 MERGE 误建重复节点 | 关系语句中的 MERGE (c:Culture {name}) 匹配歧义时创建新节点 | 两阶段导入：先建节点+唯一约束，关系用 MATCH 已存在节点再 MERGE |
 | 2026-08-09 | Wikidata label 精确匹配率低(8%) | 本地词带括号年份(如 "Tang dynasty (618–907)") | 归一化提取括号前主干，匹配率提升到 51% |
 | 2026-08-09 | DVC 报 data 已被 Git 跟踪 | data/README.md 未被 .gitignore 排除 | git rm --cached data 后交 DVC 管理 |
+| 2026-08-10 | docker-compose YAML 挂载行粘合 | 编辑时换行丢失 | 用 docker compose config 验证挂载源 |
+| 2026-08-10 | python app/app.py 找不到 src | 脚本目录不在 sys.path | app.py 顶部 sys.path.insert 项目根 |
 
 | 日期 | 模块 | 问题 | 解决方案 |
 |---|---|---|---|

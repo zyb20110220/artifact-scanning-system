@@ -33,6 +33,6 @@ services:
       - ./scripts:/app/scripts # 开发期挂载代码，改动即时生效（免重建镜像）
       - ./config:/app/config
       - ./src:/app/src
-
+      - ./app:/app/app
 volumes:
   neo4j_data:

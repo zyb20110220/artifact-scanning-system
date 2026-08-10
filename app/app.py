@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.llm.service import LLMReportService
 from src.retrieval.service import ArtifactSearchService
+from src.viz.evidence import build_evidence_graph
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -42,10 +43,10 @@ except Exception as e:
 
 
 def search_artifacts(image_path):
-    """上传图片 → 返回（画廊, 表格, 检索状态）"""
+    """上传图片 → 返回（画廊, 表格, 证据链图, 检索状态）"""
     empty_df = pd.DataFrame(columns=["图片", "相似度", "时期", "文化"])
     if image_path is None:
-        return None, empty_df, None
+        return None, empty_df, None, None
 
     # 核心调用：检索 + 图谱信息
     results = service.search_by_image(image_path, with_kg=True)
@@ -63,8 +64,16 @@ def search_artifacts(image_path):
             "时期": kg.get("period") or "",
             "文化": kg.get("culture") or "",
         })
-    # 3. 返回检索状态（查询图 + 结果），供"生成报告"按钮使用
-    return gallery, pd.DataFrame(rows), (image_path, results)
+
+    # 3. 证据链网络图（查询 -> 相似文物 -> 时期/文化）
+    try:
+        fig = build_evidence_graph(image_path, results)
+    except Exception as e:
+        logger.warning("证据链图生成失败: %s", e)
+        fig = None
+
+    # 4. 返回检索状态（查询图 + 结果），供"生成报告"按钮使用
+    return gallery, pd.DataFrame(rows), fig, (image_path, results)
 
 
 def generate_report(state):
@@ -83,8 +92,12 @@ def generate_report(state):
 
 # ---------- 界面布局 ----------
 with gr.Blocks(title="考古文物断代与鉴定系统") as demo:
-    gr.Markdown("# 🏛️ 考古文物检索系统")
-    gr.Markdown("上传文物图片，系统将检索最相似的文物，并展示其年代与文化信息。")
+    gr.Markdown("# 🏛️ 考古文物断代与鉴定系统")
+    gr.Markdown(
+        "**视觉检索 + 知识图谱 + 多模态大模型（RAG）**\n\n"
+        "上传文物图片 → 检索相似文物（DINOv2 + FAISS）→ 查询年代/文化（Neo4j 图谱）"
+        "→ 生成断代鉴定报告（Qwen-VL）"
+    )
 
     # 保存检索状态（查询图 + 检索结果）
     search_state = gr.State(None)
@@ -93,21 +106,23 @@ with gr.Blocks(title="考古文物断代与鉴定系统") as demo:
         # 左列：上传区
         with gr.Column(scale=1):
             image_input = gr.Image(type="filepath", label="上传文物图片")
+            gr.Markdown("💡 支持任意格式图片（JPG/PNG）。\n上传后：先『检索』→ 再『生成报告』")
             search_btn = gr.Button("🔍 检索相似文物", variant="primary")
             report_btn = gr.Button("📝 生成鉴定报告", variant="secondary")
 
-        # 右列：结果区
+        # 右列：结果区（画廊 + 表格）
         with gr.Column(scale=2):
             gallery_output = gr.Gallery(label="相似文物", columns=4, height=400)
             table_output = gr.DataFrame(label="相似文物信息")
 
     report_output = gr.Textbox(label="鉴定报告（LLM）", lines=15)
+    evidence_plot = gr.Plot(label="证据链网络图")
 
-    # 事件绑定：检索 → 画廊+表格+状态；生成报告 → LLM 输出
+    # 事件绑定：检索 → 画廊+表格+证据链图+状态；生成报告 → LLM 输出
     search_btn.click(
         fn=search_artifacts,
         inputs=image_input,
-        outputs=[gallery_output, table_output, search_state],
+        outputs=[gallery_output, table_output, evidence_plot, search_state],
     )
     report_btn.click(
         fn=generate_report,

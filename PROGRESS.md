@@ -144,20 +144,23 @@
 
 | # | 任务 | 状态 | 完成日期 | 备注 |
 |---|---|---|---|---|
-| 3.1 | 下载并 4bit 量化加载 Qwen2.5-VL-7B-Instruct | ⬜ | | |
-| 3.2 | 设计 Prompt 模板（查询图片 + 检索结果 → 多模态消息） | ⬜ | | |
-| 3.3 | 端到端流程：上传 → 检索 → 构建消息 → LLM 报告 | ⬜ | | |
-| 3.4 | 准备 200-500 条 (图片, 考古问答, 答案)，LoRA 微调 | ⬜ | | |
-| 3.5 | 微调模型集成到 Gradio，输出结构化报告 | ⬜ | | |
+| 3.1 | 加载 Qwen2.5-VL（无 GPU 改云端 Qwen-VL API） | ✅ | 2026-08-10 | 阿里百炼 qwen-vl-max，OpenAI 兼容接口 |
+| 3.2 | 设计 Prompt 模板（查询图片 + 检索结果 → 多模态消息） | ✅ | 2026-08-10 | src/llm/report.py：检索上下文 + 结构化输出 |
+| 3.3 | 端到端流程：上传 → 检索 → 构建消息 → LLM 报告 | ✅ | 2026-08-10 | 浏览器验证通过：完整断代报告 |
+| 3.4 | 准备 200-500 条 (图片, 考古问答, 答案)，LoRA 微调 | ⬜ | | 可选：改到 Google Colab（本地无 GPU）|
+| 3.5 | 模型集成到 Gradio，输出结构化报告 | ✅ | 2026-08-10 | app 加"生成鉴定报告"按钮 + Textbox |
 
 ### 进度日志
 
 <details>
 <summary><b>LLM 推理</b></summary>
 
-- [ ] 2026-XX-XX：
-  - 遇到的问题：
-  - 解决方案：
+- [x] 2026-08-10：云端 Qwen-VL 接入（src/llm/client.py + report.py + service.py）
+  - 遇到的问题：Gradio 上传图片格式非 JPEG 导致 API 400
+  - 解决方案：encode_image_base64 统一转 JPEG（PIL）修复
+  - 结果：端到端生成断代报告（波斯/莫卧儿细密画，16-17 世纪，置信度中）
+- [x] 2026-08-10：集成到 Gradio（生成鉴定报告按钮 + 报告 Textbox）
+  - 说明：3.4 LoRA 微调改为 Colab 可选（本地无 GPU 不执行）
 </details>
 
 ---
@@ -207,6 +210,7 @@
 | 2026-08-10 | python app/app.py 找不到 src | 脚本目录不在 sys.path | app.py 顶部 sys.path.insert 项目根 |
 | 2026-08-10 | 检索评估中 culture 标签过宽 | 同 culture(如 China)跨多个朝代，视觉差异大 | 可改用 period/medium 作更精细真值 |
 | 2026-08-10 | MET API SSL 网络抖动崩溃 | 请求阶段无重试机制 | download_met.py 加 safe_get 指数退避重试 |
+| 2026-08-10 | Gradio 上传图片致 LLM API 400 | 上传图非 JPEG 但 data URL 写死 image/jpeg | client.py 统一转 JPEG(PIL) 再编码 |
 
 | 日期 | 模块 | 问题 | 解决方案 |
 |---|---|---|---|

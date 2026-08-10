@@ -17,4 +17,9 @@ RUN pip install torch==2.4.1 torchvision==0.19.1 \
 COPY . .
 
 EXPOSE 7860
+
+# 健康检查：Gradio 服务就绪后标记 healthy（供 compose 依赖/重启判断）
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:7860/')"
+
 CMD ["python", "app/app.py"]

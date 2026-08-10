@@ -16,11 +16,18 @@ services:
 
   app:
     build: .
+    restart: unless-stopped          # 崩溃/重启后自动拉起
     ports:
       - "7860:7860"
     depends_on:
       neo4j:
         condition: service_healthy
+    healthcheck:                     # 应用健康检查（Gradio 端口）
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7860/')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s              # 模型加载需要时间，宽限 60s
+      retries: 3
     environment:
       QWEN_API_KEY: "${QWEN_API_KEY}"
       NEO4J_PASSWORD: "${NEO4J_PASSWORD}"

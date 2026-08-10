@@ -99,7 +99,7 @@
 
 | # | 任务 | 状态 | 完成日期 | 备注 |
 |---|---|---|---|---|
-| 2.1 | 图片上传 → DINOv2 特征提取 → FAISS Top-5 检索 | ⬜ | | |
+| 2.1 | 图片上传 → DINOv2 特征提取 → FAISS Top-5 检索 | ✅ | 2026-08-10 | src/ 模块化；ArtifactSearchService 验证通过（Top-5） |
 | 2.2 | 从 Neo4j 查询每件文物的年代、出土地等 | ⬜ | | |
 | 2.3 | Gradio 界面：上传图片显示相似文物图像 + 元数据 | ⬜ | | |
 | 2.4 | 人工标注数据上评估 Top-5 准确率，调优参数 | ⬜ | | |
@@ -109,9 +109,10 @@
 <details>
 <summary><b>检索 Pipeline</b></summary>
 
-- [ ] 2026-XX-XX：
-  - 遇到的问题：
-  - 解决方案：
+- [x] 2026-08-10：src/ 模块化改造（features/dinov2.py + retrieval/faiss_index.py + service.py）
+  - 遇到的问题：命令行转义；模型重复加载
+  - 解决方案：模块级缓存（模型/索引只加载一次）；ArtifactSearchService 封装
+  - 验证：search_by_image 返回 Top-5（相似度 1.0 / 0.788 / 0.698 / 0.69 / 0.516）
 </details>
 
 ---

@@ -49,6 +49,24 @@ def load_config():
         return yaml.safe_load(f)
 
 
+def safe_get(url, params=None, retries=5, timeout=30):
+    """带指数退避重试的 GET 请求（应对临时网络抖动/SSL EOF）"""
+    for attempt in range(retries):
+        try:
+            resp = requests.get(
+                url, params=params, timeout=timeout,
+                headers={"User-Agent": "artifact-scanning/1.0"},
+            )
+            return resp
+        except requests.exceptions.RequestException as e:
+            if attempt == retries - 1:
+                logger.error("请求最终失败 %s: %s", url, e)
+                raise
+            wait = 2 ** attempt
+            logger.warning("请求异常，%.0fs 后重试: %s", wait, e)
+            time.sleep(wait)
+
+
 def get_object_ids_by_search(api_base, keywords):
     """
     方案 B：按关键词搜索获取 objectID 列表。
@@ -58,7 +76,7 @@ def get_object_ids_by_search(api_base, keywords):
     ids = []
     for kw in keywords:
         url = f"{api_base}/search?q={kw}&hasImages=true"
-        resp = requests.get(url, timeout=30)
+        resp = safe_get(url)
         if resp.status_code == 403:
             logger.error("MET 返回 403（限流/封禁）：请稍后再试，或申请 MET API Key")
             raise SystemExit(1)
@@ -80,7 +98,7 @@ def get_object_ids_by_department(api_base, department_ids):
     ids = []
     for dept in department_ids:
         url = f"{api_base}/objects?departmentIds={dept}"
-        resp = requests.get(url, timeout=30)
+        resp = safe_get(url)
         if resp.status_code == 403:
             logger.error("MET 返回 403（限流/封禁）：请等待一段时间后再试，或申请 MET API Key")
             raise SystemExit(1)

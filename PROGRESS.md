@@ -130,6 +130,10 @@
   - 结果：Precision@5 = culture 0.213 / period 0.774 / medium 0.569
   - 洞察：period（埃及第三中间期 80 件 5.0/5 完美）与视觉最对齐 → 证明 DINOv2 检索能力强
   - 结论："精度不足"主因是同类标签(culture)过宽 + 数据稀疏，非模型问题
+- [x] 2026-08-10：补数据优化启动（扩充关键词 18→37，2 线程慢速后台下载）
+  - 遇到的问题：MET API SSL 网络抖动导致崩溃（请求阶段无重试）
+  - 解决方案：download_met.py 加 safe_get 指数退避重试
+  - 待办：下载完成后重跑 特征→索引→图谱 更新
 </details>
 
 ---
@@ -202,6 +206,7 @@
 | 2026-08-10 | docker-compose YAML 挂载行粘合 | 编辑时换行丢失 | 用 docker compose config 验证挂载源 |
 | 2026-08-10 | python app/app.py 找不到 src | 脚本目录不在 sys.path | app.py 顶部 sys.path.insert 项目根 |
 | 2026-08-10 | 检索评估中 culture 标签过宽 | 同 culture(如 China)跨多个朝代，视觉差异大 | 可改用 period/medium 作更精细真值 |
+| 2026-08-10 | MET API SSL 网络抖动崩溃 | 请求阶段无重试机制 | download_met.py 加 safe_get 指数退避重试 |
 
 | 日期 | 模块 | 问题 | 解决方案 |
 |---|---|---|---|

@@ -15,6 +15,7 @@
 运行：
   docker compose run --rm app python scripts/evaluate.py
 """
+import argparse
 import json
 from pathlib import Path
 
@@ -34,6 +35,13 @@ def oid_from_path(p: str) -> str:
 
 
 def main():
+    parser = argparse.ArgumentParser(description="检索质量评估")
+    parser.add_argument("--standard", default="culture",
+                        choices=["culture", "period", "medium"],
+                        help="同类判定标准（默认 culture）")
+    args = parser.parse_args()
+    standard = args.standard
+
     df = pd.read_csv(METADATA_CSV)
     vecs = np.load(FEATURE_DIR / "dinov2_features.npy")
     with open(FEATURE_DIR / "id_map.json", "r", encoding="utf-8") as f:
@@ -43,29 +51,29 @@ def main():
     # object_id -> 行（快速查找元数据）
     meta_by_oid = {str(r["object_id"]): r for _, r in df.iterrows()}
 
-    # 预处理：每条记录的 culture（strip + 去 nan）
-    oid_culture = {}
+    # 预处理：每条记录的标签（按 standard 字段，strip + 去 nan）
+    oid_label = {}
     for oid, row in meta_by_oid.items():
-        c = str(row.get("culture", "")).strip()
-        oid_culture[oid] = c if c and c != "nan" else ""
+        c = str(row.get(standard, "")).strip()
+        oid_label[oid] = c if c and c != "nan" else ""
 
-    # 预计算各文化的文物数量（用于 Recall 分母）
-    culture_total = {}
-    for c in oid_culture.values():
+    # 预计算各标签的文物数量（用于 Recall 分母）
+    label_total = {}
+    for c in oid_label.values():
         if c:
-            culture_total[c] = culture_total.get(c, 0) + 1
+            label_total[c] = label_total.get(c, 0) + 1
 
     precisions, recalls, hits, totals = [], [], [], []
     queried = 0
 
     for i, path in enumerate(id_map):
         oid = oid_from_path(path)
-        culture = oid_culture.get(oid, "")
-        if not culture:
+        label = oid_label.get(oid, "")
+        if not label:
             continue                       # 无标签，跳过
-        total_related = culture_total[culture] - 1
+        total_related = label_total[label] - 1
         if total_related <= 0:
-            continue                       # 该文化只有自己，无法评估
+            continue                       # 该类只有自己，无法评估
 
         # 检索 Top-(K+1)（含自己，结果按相似度降序）
         _, idx = index.search(vecs[i:i + 1], TOP_K + 1)
@@ -75,7 +83,7 @@ def main():
         hits_n = 0
         for j in results:
             r_oid = oid_from_path(id_map[j])
-            if oid_culture.get(r_oid, "") == culture:
+            if oid_label.get(r_oid, "") == label:
                 hits_n += 1
 
         precisions.append(hits_n / TOP_K)
@@ -86,7 +94,7 @@ def main():
 
     # 报告
     print("=" * 50)
-    print(f"评估文物数（有 culture 标签）: {queried}")
+    print(f"评估文物数（有 {standard} 标签）: {queried}")
     print(f"Top-K: {TOP_K}")
     print("-" * 50)
     print(f"Precision@{TOP_K}: {np.mean(precisions):.3f}  (Top-{TOP_K} 中同类占比均值)")
@@ -95,20 +103,20 @@ def main():
     print(f"平均同类总数:      {np.mean(totals):.1f}")
     print("=" * 50)
 
-    # 按文化分组看表现（便于定位问题）
-    print("\n按文化分组的平均命中数（Top-5 中的同类数）:")
-    by_culture = {}
+    # 按标签分组看表现（便于定位问题）
+    print(f"\n按 {standard} 分组的平均命中数（Top-5 中的同类数）:")
+    by_label = {}
     for i, path in enumerate(id_map):
         oid = oid_from_path(path)
-        culture = oid_culture.get(oid, "")
-        if not culture or culture_total.get(culture, 0) <= 1:
+        label = oid_label.get(oid, "")
+        if not label or label_total.get(label, 0) <= 1:
             continue
         _, idx = index.search(vecs[i:i + 1], TOP_K + 1)
         results = [j for j in idx[0] if j != i][:TOP_K]
-        hits_n = sum(1 for j in results if oid_culture.get(oid_from_path(id_map[j]), "") == culture)
-        by_culture.setdefault(culture, []).append(hits_n)
-    for c, hs in sorted(by_culture.items(), key=lambda x: -np.mean(x[1])):
-        print(f"  {c:<20} 样本 {len(hs):>3}  平均同类命中 {np.mean(hs):.2f}/{TOP_K}")
+        hits_n = sum(1 for j in results if oid_label.get(oid_from_path(id_map[j]), "") == label)
+        by_label.setdefault(label, []).append(hits_n)
+    for c, hs in sorted(by_label.items(), key=lambda x: -np.mean(x[1])):
+        print(f"  {c:<24} 样本 {len(hs):>3}  平均同类命中 {np.mean(hs):.2f}/{TOP_K}")
 
 
 if __name__ == "__main__":

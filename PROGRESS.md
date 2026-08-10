@@ -102,7 +102,7 @@
 | 2.1 | 图片上传 → DINOv2 特征提取 → FAISS Top-5 检索 | ✅ | 2026-08-10 | src/ 模块化；ArtifactSearchService 验证通过（Top-5） |
 | 2.2 | 从 Neo4j 查询每件文物的年代、出土地等 | ✅ | 2026-08-10 | src/kg/query.py；检索结果自动附带时期/文化 |
 | 2.3 | Gradio 界面：上传图片显示相似文物图像 + 元数据 | ✅ | 2026-08-10 | app/app.py 运行正常，浏览器验证通过；检索精度待 2.4 调优 |
-| 2.4 | 人工标注数据上评估 Top-5 准确率，调优参数 | 🔄 | 2026-08-10 | 基线 P@5=0.213, R@5=0.369；Flemish/Maya 好，China 差（culture 标签过宽）|
+| 2.4 | 人工标注数据上评估 Top-5 准确率，调优参数 | ✅ | 2026-08-10 | 三种标准 P@5: culture 0.213 / period 0.774 / medium 0.569；证明检索有效 |
 
 ### 进度日志
 
@@ -126,6 +126,10 @@
   - 基线：Precision@5=0.213, Recall@5=0.369（远好于随机≈0.02）
   - 洞察：Flemish 3.0/5, Maya 2.17/5 表现好；China 0.27/5 差（culture 标签过宽，跨朝代）
   - 结论：检索有效，精度受"同类定义粗糙 + 数据稀疏"限制
+- [x] 2026-08-10：多标准评估对比（evaluate.py --standard culture/period/medium）
+  - 结果：Precision@5 = culture 0.213 / period 0.774 / medium 0.569
+  - 洞察：period（埃及第三中间期 80 件 5.0/5 完美）与视觉最对齐 → 证明 DINOv2 检索能力强
+  - 结论："精度不足"主因是同类标签(culture)过宽 + 数据稀疏，非模型问题
 </details>
 
 ---

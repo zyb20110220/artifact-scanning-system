@@ -1,6 +1,7 @@
 services:
   neo4j:
     image: neo4j:5
+    restart: unless-stopped        # 崩溃/重启后自动拉起，避免图谱不可用导致检索报错
     ports:
       - "7474:7474"
       - "7687:7687"
@@ -11,23 +12,24 @@ services:
     healthcheck:
       test: [ "CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD}", "RETURN 1" ]
       interval: 10s
-      timeout: 20s          # cypher-shell 冷启动（JVM）较慢，放宽超时避免误判 unhealthy
+      timeout: 20s # cypher-shell 冷启动（JVM）较慢，放宽超时避免误判 unhealthy
       retries: 6
       start_period: 30s
 
   app:
     build: .
-    restart: unless-stopped          # 崩溃/重启后自动拉起
+    restart: unless-stopped # 崩溃/重启后自动拉起
     ports:
       - "7860:7860"
     depends_on:
       neo4j:
         condition: service_healthy
-    healthcheck:                     # 应用健康检查（Gradio 端口）
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7860/')"]
+    healthcheck:
+      # 应用健康检查（Gradio 端口）
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7860/')" ]
       interval: 30s
       timeout: 5s
-      start_period: 60s              # 模型加载需要时间，宽限 60s
+      start_period: 60s # 模型加载需要时间，宽限 60s
       retries: 3
     environment:
       QWEN_API_KEY: "${QWEN_API_KEY}"
@@ -42,7 +44,7 @@ services:
       - ./config:/app/config
       - ./src:/app/src
       - ./app:/app/app
-      - hf_cache:/root/.cache/huggingface   # 模型缓存持久化：DINOv2/CLIP 只下载一次，冷启动免重新下载
+      - hf_cache:/root/.cache/huggingface # 模型缓存持久化：DINOv2/CLIP 只下载一次，冷启动免重新下载
 volumes:
   neo4j_data:
   hf_cache:
